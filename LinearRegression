@@ -1,0 +1,115 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import math
+
+df = pd.read_csv("winequality-white.csv",sep=";",header='infer')
+
+# Make prediction #
+def predict (x,coeff):
+    pred = np.dot(x,coeff)
+    return pred
+
+# Calculating the cost
+def rootMeanSquareError (actual,predicted):
+    m,col =actual.shape 
+    error = np.zeros((m,1))
+    error = (predicted-actual)
+    #cost = 1/(2*m) * np.sum(np.dot(error,np.transpose(error))) #Calculating the cost which is similar to root mean square error
+    sum_error = np.sum(error**2)
+    cost = math.sqrt(sum_error/m)
+    return error, cost
+
+# Visualize the data
+def graph (x,y,reg='false',pred=None):
+    plt.plot(x,y, 'r.')
+    if(reg=='true'):
+        plt.plot(x,pred,'b--', label='Current hypothesis')
+        plt.legend()
+    plt.show()
+
+# Estimate linear regression coefficients using stochastic gradient descent
+def gradientDescent (lrate, epoch, x,y):
+    rows,columns = x.shape
+    #gd_result = np.array #np.empty((epoch,3))
+    iterator =np.zeros((epoch,1),dtype='int')
+    costArray=np.zeros((epoch,1))
+    coef = np.zeros((1,columns))
+    gradient = np.zeros((epoch,columns),dtype='float')
+    t =0
+    for i in range(epoch):
+        y_predict = predict(x,np.transpose(coef)) 
+        error,cost = rootMeanSquareError(y,y_predict)
+        coef[0,0] = coef[0,0] - (lrate/rows)*np.sum(error) 
+        for features in range(2,columns):
+            coef[0:,features-1] = coef[0,features-1] - (lrate/rows)*np.sum(np.dot(error,np.transpose(x[:,features-1:features])))    
+        iterator[i]=i
+        costArray[i]= cost
+        gradient[i]=coef
+    return iterator,costArray,gradient
+
+def splitData (x,y,trainPer=80):
+    rows,columns = x.shape
+    testPerc = int(rows*(trainPer/100))
+    validatePerc = int(rows*((100-trainPer)/100))
+#Split data
+    trainX = x[:testPerc,:]
+    validateX = x[:validatePerc,:]
+    trainY = y[:testPerc]
+    validateY = y[:validatePerc]
+    return trainX,trainY,validateX,validateY
+'''
+def featureSelection(corr):
+    col=corr.shape[0]
+    column = corr.columns
+    for i in range(col):
+        for j in range(i+1,col):
+            if corr.iloc[i][j]>0.44:
+                print(column[j])
+                del column[j]
+                #column.remove(column[j])
+                
+    #print(corr.columns[column])
+    #columns = np.full(corr.shape[0])
+    '''
+def normalize_dataset (df):
+    for i in range(df.shape[1]):
+        minimumn = min(df.iloc[:,i])
+        maximum = max(df.iloc[:,i])
+        diff = maximum-minimumn
+        df.iloc[:,i] = (df.iloc[:,i]-minimumn)/diff
+    return df
+
+rows,columns = df.shape
+df = pd.DataFrame(df)
+corr = pd.DataFrame(df.corr())
+#sns.heatmap(corr,xticklabels=corr.columns,yticklabels=corr.columns,annot=True)
+#plt.show()
+
+df = normalize_dataset(df)
+
+x = df.iloc[:,:columns-1]
+y = df.iloc[:,columns-1:]
+
+Theta0_array = np.ones((rows,1))
+x = np.append(Theta0_array,x,axis=1)
+
+#Spliting data for train and test
+trainX,trainY,testX,testY = splitData(x,y,)
+learningRate = [0.000001,0.00001,0.0001,0.001,0.01]
+bestLR = np.zeros((len(learningRate),2),dtype='float')
+epoch = 100
+
+np.set_printoptions(suppress=True)
+
+for i in range(len(learningRate)):
+    iteration,score,grad=gradientDescent(learningRate[i],epoch,testX,testY)
+    #iteration,score,grad=gradientDescent(learningRate[i],epoch,trainX,trainY)
+    minimumScore = (np.min(score))
+    #index = np.where(score==minimumScore)[0]
+    bestLR[i] = [str(learningRate[i]),np.around(minimumScore, decimals=2)]
+
+print(bestLR)
+arr = np.where(bestLR==np.min(bestLR[:,1:2]))
+print (f"Best learning rate for the Model is {bestLR[arr[0],0]} and minimum score is {bestLR[arr[0],1]}")
